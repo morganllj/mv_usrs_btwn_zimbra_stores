@@ -18,7 +18,7 @@ $script_dir = '/' . $script_dir if ($0=~/^\//);
 
 
 my %opts;
-getopts('oec:a:d:nu', \%opts);
+getopts('oec:a:d:np:', \%opts);
 
 my $whoami = `whoami`;
 chomp $whoami;
@@ -84,31 +84,44 @@ while (<$in>) {
 	next;
     }
 
-    my $move_user = 0;
-    if (
-	(($d =~ /^\d+$/) &&
-	 ((exists $opts{o} && ($d % 2) == 1) ||
-	  (exists $opts{e} && ($d % 2) == 0))) ||
-	  (!exists $opts{o} && !exists $opts{e})) {
-	    $move_user = 1;
-	}
+#    my $move_user = 0;
+    # if (
+    # 	(($d =~ /^\d+$/) &&
+    # 	 ((exists $opts{o} && ($d % 2) == 1) ||
+    # 	  (exists $opts{e} && ($d % 2) == 0))) ||
+    # 	  (!exists $opts{o} && !exists $opts{e})) {
+    # 	    $move_user = 1;
+    # 	}
 
-    if ($move_user) {
+    if (
+	# only move odds or evens
+     	(($d =~ /^\d+$/) &&
+	 ((exists $opts{o} && ($d % 2) == 1) || (exists $opts{e} && ($d % 2) == 0))) ||
+	# chose last digit to move
+	(exists $opts{p} && $d =~ /[$opts{p}]{1}/) ||
+	# specify an account to move
+	(!exists $opts{o} && !exists $opts{e} && !exists $opts{p})
+       ) {
+
+    
+
+
 	print "\n", $account, " ", calc_size($size), "gb\n";
-	
-	my $rc = move_and_purge($account, $count);
+
+	my $rc = move_and_purge($account);
 	
 	$total_size += $size
 	  unless ($rc);
-	$count--;
+	print --$count, " accounts left\n";
     }
+
 } 
 
 
 
 sub move_and_purge(@) {
     my $account = shift;
-    my $count = shift;
+#    my $count = shift;
 
     my $dest;
     if (exists $opts{d}) {
@@ -124,18 +137,7 @@ sub move_and_purge(@) {
 	    print "\n";
 	    return();
 	}
-	
-	if ($last_digit == "0" || $last_digit == "1") {
-	    $dest = "mail01.domain.org";
-	} elsif ($last_digit == "2" || $last_digit == "3") {
-	    $dest = "mail02.domain.org";
-	} elsif ($last_digit == "4" || $last_digit == "5") {
-	    $dest = "mail03.domain.org";
-	} elsif ($last_digit == "6" || $last_digit == "7") {
-	    $dest = "mail04.domain.org";
-	} elsif ($last_digit == "8" || $last_digit == "9") {
-	    $dest = "mail05.domain.org";
-	}
+
 	print "destination host: $dest\n";
     }
 
@@ -147,7 +149,7 @@ sub move_and_purge(@) {
 
 #    my $output_file = "/var/tmp/${account}_files.csv";
 
-    print "($count account(s) left) " if (defined $count);
+#    print "($count account(s) left) " if (defined $count);
     
     # print "dumping file list for ${account}, " . `date`;
     # if (!exists $opts{n}) {
@@ -203,14 +205,13 @@ print "\ntotal size: ", calc_size($total_size), "gb\n";
 
 sub print_usage() {
     print "\n";
-    print "usage: $0 -d <destination host> | -p \n";
-    print "\t-c <records to move> | -a <specific account to move>\n";
-    print "\t[ -o | -e ] [ -u ] [ -n ]\n";
+    print "usage: $0 [-n] -d <destination host> -c <records to move>\n";
+    print "\t -p pattern | ( -o | -e ) | -a <specific account to move>\n";
     print "\n";
     print "\t-d <destination host> host to which to move account(s)\n";
     print "\t-p pick host to which to move accounts based on \n";
-    print "\tlast digit of archive account:\n";
-    print "\t\t01: mail01, 2-3: mail02, 4-5: mail03, etc\n";
+    print "\tlast digit of archive account, this is a perl character class:\n";
+    print "\t\tex: 123: move accounts ending in 1,2, or 3.\n";
     print "\t-c <record count to move | -a <account to move>\n";
     print "\t\teither move an individual account or take a specified\n";
     print "\t\tnumber off the top of zmprov gqu `zmhostname`\n";
