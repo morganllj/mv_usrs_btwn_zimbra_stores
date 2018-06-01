@@ -38,23 +38,10 @@ if (exists $opts{n}) {
 }
 my $count;
 
-print "-e specified, only even records will be moved\n"
-  if (exists $opts{e} && !exists $opts{a});
-print "-o specified, only odd records will be moved\n"
-  if (exists $opts{o} && !exists $opts{a});
-
 if (exists $opts{c} && ! exists $opts{a}) {
     $count = $opts{c};
     print "\nworking on $count records...\n";
 } 
-
-if (exists $opts{e} && exists $opts{o}) {
-    print "-e and -o are mutually exclusive\n";
-    print_usage();
-} elsif ((exists $opts{e} || exists $opts{o}) && exists ($opts{a})) {
-    print "-e | -o and -a are mutually exclusive\n";
-    print_usage();
-}
 
 my $account_to_move;
 if (exists $opts{a}) {
@@ -79,33 +66,7 @@ while (<$in>) {
     my $length = () = split //, $n, -1;
     my $d = (split //, $n)[$length-2];
 
-    if (($d !~ /^\d+$/) && (exists $opts{o} or exists $opts{e})) {
-	print "-e or -o specified and $account does not end in a number, it will be skipped.\n";
-	next;
-    }
-
-#    my $move_user = 0;
-    # if (
-    # 	(($d =~ /^\d+$/) &&
-    # 	 ((exists $opts{o} && ($d % 2) == 1) ||
-    # 	  (exists $opts{e} && ($d % 2) == 0))) ||
-    # 	  (!exists $opts{o} && !exists $opts{e})) {
-    # 	    $move_user = 1;
-    # 	}
-
-    if (
-	# only move odds or evens
-     	(($d =~ /^\d+$/) &&
-	 ((exists $opts{o} && ($d % 2) == 1) || (exists $opts{e} && ($d % 2) == 0))) ||
-	# chose last digit to move
-	(exists $opts{p} && $d =~ /[$opts{p}]{1}/) ||
-	# specify an account to move
-	(!exists $opts{o} && !exists $opts{e} && !exists $opts{p})
-       ) {
-
-    
-
-
+    if (exists $opts{p} && $d =~ /[$opts{p}]{1}/ || !exists $opts{p}) {
 	print "\n", $account, " ", calc_size($size), "gb\n";
 
 	my $rc = move_and_purge($account);
@@ -118,10 +79,8 @@ while (<$in>) {
 } 
 
 
-
 sub move_and_purge(@) {
     my $account = shift;
-#    my $count = shift;
 
     my $dest;
     if (exists $opts{d}) {
@@ -141,31 +100,6 @@ sub move_and_purge(@) {
 	print "destination host: $dest\n";
     }
 
-    # Zimbra 8.x changed the backend file format so this no longer works
-#    if (! -f $script_dir . "/find_zimbra_db_files.pl") {
-#	print "can't find find_zimbra_db_files.pl in $script_dir, please make sure it's in the same directory as $0\n";
-#	exit;
-#    }
-
-#    my $output_file = "/var/tmp/${account}_files.csv";
-
-#    print "($count account(s) left) " if (defined $count);
-    
-    # print "dumping file list for ${account}, " . `date`;
-    # if (!exists $opts{n}) {
-    # 	die "dumping db file list for $account failed."
-    # 	  if (system ($script_dir . "/find_zimbra_db_files.pl -a $account > $output_file") != 0)
-    # }
-
-
-    # if (!exists $opts{n}) {
-    # 	if (-z $output_file || ! -e $output_file) {
-    # 	    print "$output_file is empty or missing, not moving/purging ${account}\n";
-    # 	    return 1;
-    # 	}
-    # }
-
-#    print "dumped ${account}'s file list, now moving " . `date`;
     print "moving files for ${account} at " . `date`;
     if (!exists $opts{n}) {
 	if (system ("zmmboxmove -a $account --from `zmhostname` --to $dest --sync") != 0) {
@@ -179,43 +113,23 @@ sub move_and_purge(@) {
 	    die "purging $account mailbox failed failed";
 	}
     }
-
-    # print "checking that files were purged " . `date`;
-
-    # if (!exists $opts{n}) {
-    # 	my $file_check_in;
-    # 	open ($file_check_in, $output_file) || die "unable to open $output_file for reading";
-    # 	my $files_exist  = 0;
-    # 	while (<$file_check_in>) {
-    # 	    my $file = (split /,/)[0];
-    # 	    next if ( $file eq "NULL");
-    # 	    if ( -f $file ) {
-    # 		print "\texists: $file\n";
-    # 		$files_exist = 1;
-    # 	    }
-    # 	}
-    # 	die "not all files were purged for $account, exiting" if ($files_exist);
-    # }
-    
 }
 
-#print "\ntotal size: $total_size\n";
 print "\ntotal size: ", calc_size($total_size), "gb\n";
 
 
 sub print_usage() {
     print "\n";
     print "usage: $0 [-n] -d <destination host> -c <records to move>\n";
-    print "\t -p pattern | ( -o | -e ) | -a <specific account to move>\n";
+    print "\t -p pattern | -a <specific account to move>\n";
     print "\n";
     print "\t-d <destination host> host to which to move account(s)\n";
     print "\t-p pick host to which to move accounts based on \n";
-    print "\tlast digit of archive account, this is a perl character class:\n";
+    print "\t\tlast digit of archive account, this is a perl character class:\n";
     print "\t\tex: 123: move accounts ending in 1,2, or 3.\n";
     print "\t-c <record count to move | -a <account to move>\n";
     print "\t\teither move an individual account or take a specified\n";
     print "\t\tnumber off the top of zmprov gqu `zmhostname`\n";
-    print "\t-o | -e only move records ending in odd or even numbers\n";
     print "\t-n print but do not make changes\n";
     exit 1;
 }
